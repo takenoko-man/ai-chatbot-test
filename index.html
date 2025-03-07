@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIチャットアシスタント</title>
+    <!-- Vue.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #10a37f; /* Gemini/ChatGPTっぽい緑色 */
+            --bg-color: #f7f7f8;
+            --chat-bg: #ffffff;
+            --user-bubble: #10a37f;
+            --bot-bubble: #f0f0f0;
+            --text-color: #343541;
+            --text-light: #6e6e80;
+            --border-color: #e5e5e5;
+            --shadow-color: rgba(0, 0, 0, 0.05);
+            --user-text: #ffffff;
+            --bot-text: #111827;
+            --hover-color: #f9f9f9;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            max-width: 1000px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .chat-header {
+            background-color: var(--chat-bg);
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 10;
+        }
+
+        .chat-header h1 {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 0;
+            color: var(--text-color);
+        }
+
+        .chat-header .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .chat-header .logo-icon {
+            width: 30px;
+            height: 30px;
+            background-color: var(--primary-color);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 16px;
+        }
+
+        .chat-header .new-chat {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            padding: 8px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: var(--text-color);
+            transition: background-color 0.2s;
+        }
+
+        .chat-header .new-chat:hover {
+            background-color: var(--hover-color);
+        }
+
+        .chat-messages {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            background-color: var(--chat-bg);
+        }
+
+        .message {
+            display: flex;
+            max-width: 80%;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 16px;
+            flex-shrink: 0;
+        }
+
+        .bot-message .avatar {
+            background-color: #10a37f;
+            color: white;
+        }
+
+        .user-message .avatar {
+            background-color: #7B68EE;
+            color: white;
+        }
+
+        .message-content {
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-size: 15px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
+
+        .user-message {
+            align-self: flex-end;
+        }
+
+        .bot-message {
+            align-self: flex-start;
+        }
+
+        .user-message .message-content {
+            background-color: var(--user-bubble);
+            color: var(--user-text);
+        }
+
+        .bot-message .message-content {
+            background-color: var(--bot-bubble);
+            color: var(--bot-text);
+        }
+
+        .message img {
+            max-width: 300px;
+            max-height: 300px;
+            border-radius: 8px;
+            margin-top: 8px;
+        }
+
+        .input-container {
+            background-color: var(--chat-bg);
+            padding: 16px 24px 24px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .input-wrapper {
+            display: flex;
+            align-items: center;
+            position: relative;
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: var(--chat-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: 0 2px 6px var(--shadow-color);
+        }
+
+        .input-field {
+            flex-grow: 1;
+            height: 24px;
+            padding: 12px 16px;
+            font-size: 15px;
+            border: none;
+            outline: none;
+            background: transparent;
+            max-height: 150px;
+            overflow-y: auto;
+            resize: none;
+            font-family: 'Inter', sans-serif;
+            color: var(--text-color);
+        }
+
+        .input-field::placeholder {
+            color: var(--text-light);
+        }
+
+        .input-buttons {
+            display: flex;
+            padding: 0 10px;
+        }
+
+        .input-button {
+            background: none;
+            border: none;
+            padding: 8px;
+            cursor: pointer;
+            border-radius: 4px;
+            color: var(--text-light);
+            font-size: 16px;
+            transition: color 0.2s, background-color 0.2s;
+        }
+
+        .input-button:hover {
+            background-color: var(--hover-color);
+            color: var(--primary-color);
+        }
+
+        .input-button.active {
+            color: var(--primary-color);
+        }
+
+        .send-button {
+            margin-left: 4px;
+            color: var(--primary-color);
+        }
+
+        .send-button:disabled {
+            color: var(--text-light);
+            cursor: not-allowed;
+        }
+
+        .preview-image-container {
+            padding: 0 24px;
+            background-color: var(--chat-bg);
+        }
+
+        .preview-image-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            background-color: var(--bg-color);
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .preview-image {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 6px;
+        }
+
+        .preview-remove {
+            background: rgba(0, 0, 0, 0.1);
+            border: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-color);
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .preview-remove:hover {
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .loading-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: var(--text-light);
+        }
+
+        .dots {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--text-light);
+            border-radius: 50%;
+            animation: dotPulse 1.5s infinite ease-in-out;
+        }
+
+        .dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes dotPulse {
+            0%, 100% { transform: scale(0.6); opacity: 0.6; }
+            50% { transform: scale(1); opacity: 1; }
+        }
+
+        /* レスポンシブ対応 */
+        @media (max-width: 768px) {
+            .chat-messages {
+                padding: 16px;
+            }
+            
+            .message {
+                max-width: 90%;
+            }
+            
+            .preview-image {
+                width: 60px;
+                height: 60px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app" class="app-container">
+        <header class="chat-header">
+            <div class="logo">
+                <div class="logo-icon">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <h1>AIチャットアシスタント</h1>
+            </div>
+            <button class="new-chat" @click="resetChat">
+                <i class="fas fa-plus"></i>
+                <span>新しい会話</span>
+            </button>
+        </header>
+
+        <div class="chat-messages" ref="messagesContainer">
+            <div v-for="(message, index) in messages" :key="index" 
+                 :class="['message', message.sender === 'user' ? 'user-message' : 'bot-message']">
+                <div class="avatar">
+                    <i :class="message.sender === 'user' ? 'fas fa-user' : 'fas fa-robot'"></i>
+                </div>
+                <div class="message-content">
+                    {{ message.text }}
+                    <img v-if="message.image" :src="message.image" alt="添付画像">
+                </div>
+            </div>
+
+            <div v-if="isLoading" class="message bot-message">
+                <div class="avatar">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="loading-indicator">
+                    <div class="dots">
+                        <div class="dot"></div>
+                        <div class="dot"></div>
+                        <div class="dot"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="selectedImage" class="preview-image-container">
+            <div class="preview-image-wrapper">
+                <img :src="selectedImage" alt="選択された画像" class="preview-image">
+                <button class="preview-remove" @click="clearSelectedImage">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="input-container">
+            <div class="input-wrapper">
+                <textarea 
+                    class="input-field" 
+                    v-model="userInput" 
+                    @keydown.enter.prevent="sendMessage"
+                    :disabled="isRecording || isLoading"
+                    placeholder="メッセージを入力..."
+                    ref="inputField"
+                    rows="1"
+                    @input="autoResize"
+                ></textarea>
+                <div class="input-buttons">
+                    <button 
+                        class="input-button" 
+                        :class="{ active: isRecording }"
+                        @click="toggleRecording"
+                        :disabled="isLoading"
+                        title="音声入力"
+                    >
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                    <label class="input-button" title="画像を添付">
+                        <i class="fas fa-image"></i>
+                        <input
+                            type="file"
+                            ref="imageUpload"
+                            @change="handleImageUpload"
+                            accept="image/*"
+                            style="display: none"
+                        >
+                    </label>
+                    <button 
+                        class="input-button send-button" 
+                        @click="sendMessage" 
+                        :disabled="(userInput.trim() === '' && !selectedImage) || isLoading"
+                        title="送信"
+                    >
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        new Vue({
+            el: '#app',
+            data: {
+                userInput: '',
+                messages: [
+                    { 
+                        sender: 'bot', 
+                        text: 'こんにちは！どうぞ質問してください。テキスト入力、音声入力、または画像とテキストの組み合わせで質問できます。' 
+                    }
+                ],
+                isLoading: false,
+                isRecording: false,
+                recognition: null,
+                selectedImage: null,
+                selectedImageFile: null,
+                backendUrl: 'https://67c7-34-16-176-235.ngrok-free.app' // 例: https://abcd-123-456-789-10.ngrok.io
+            },
+            mounted() {
+                // 音声認識のセットアップ（ブラウザがサポートしている場合）
+                if ('webkitSpeechRecognition' in window) {
+                    this.recognition = new webkitSpeechRecognition();
+                    this.recognition.lang = 'ja-JP';
+                    this.recognition.continuous = false;
+                    this.recognition.interimResults = false;
+
+                    this.recognition.onresult = (event) => {
+                        const transcript = event.results[0][0].transcript;
+                        this.userInput = transcript;
+                    };
+
+                    this.recognition.onend = () => {
+                        this.isRecording = false;
+                    };
+                }
+                
+                // テキストエリアの自動リサイズの初期設定
+                this.autoResize();
+            },
+            methods: {
+                sendMessage() {
+                    if ((!this.userInput.trim() && !this.selectedImageFile) || this.isLoading) return;
+
+                    // Enter キーで送信する場合はシフトキーが押されていなければ送信
+                    if (event && event.key === 'Enter' && event.shiftKey) {
+                        return; // Shift+Enter の場合は改行
+                    }
+
+                    // ユーザーメッセージの追加
+                    this.messages.push({
+                        sender: 'user',
+                        text: this.userInput,
+                        image: this.selectedImage
+                    });
+
+                    this.isLoading = true;
+
+                    // FormDataの作成
+                    const formData = new FormData();
+                    formData.append('text', this.userInput);
+                    if (this.selectedImageFile) {
+                        formData.append('image', this.selectedImageFile);
+                    }
+
+                    // バックエンドへのリクエスト
+                    fetch(`${this.backendUrl}/chat`, {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        // ボットの応答を追加
+                        this.messages.push({
+                            sender: 'bot',
+                            text: data.response
+                        });
+                        this.isLoading = false;
+                        this.scrollToBottom();
+                    })
+                    .catch(error => {
+                        console.error('エラー:', error);
+                        this.messages.push({
+                            sender: 'bot',
+                            text: 'すみません、エラーが発生しました。もう一度試してください。'
+                        });
+                        this.isLoading = false;
+                        this.scrollToBottom();
+                    });
+
+                    // 入力欄とイメージのクリア
+                    this.userInput = '';
+                    this.clearSelectedImage();
+                    this.scrollToBottom();
+                    
+                    // テキストエリアのサイズをリセット
+                    this.$nextTick(() => {
+                        this.autoResize();
+                    });
+                },
+                toggleRecording() {
+                    if (!this.recognition) {
+                        alert('お使いのブラウザは音声認識をサポートしていません。');
+                        return;
+                    }
+
+                    if (this.isRecording) {
+                        this.recognition.stop();
+                    } else {
+                        this.isRecording = true;
+                        this.recognition.start();
+                    }
+                },
+                handleImageUpload(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+
+                    this.selectedImageFile = file;
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        this.selectedImage = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                },
+                clearSelectedImage() {
+                    this.selectedImage = null;
+                    this.selectedImageFile = null;
+                    if (this.$refs.imageUpload) {
+                        this.$refs.imageUpload.value = null;
+                    }
+                },
+                scrollToBottom() {
+                    this.$nextTick(() => {
+                        const container = this.$refs.messagesContainer;
+                        container.scrollTop = container.scrollHeight;
+                    });
+                },
+                resetChat() {
+                    this.messages = [
+                        { 
+                            sender: 'bot', 
+                            text: 'こんにちは！どうぞ質問してください。テキスト入力、音声入力、または画像とテキストの組み合わせで質問できます。' 
+                        }
+                    ];
+                    this.clearSelectedImage();
+                    this.userInput = '';
+                },
+                autoResize() {
+                    const textarea = this.$refs.inputField;
+                    if (!textarea) return;
+                    
+                    // 高さをリセット
+                    textarea.style.height = 'auto';
+                    
+                    // スクロールの高さに合わせる（最大5行まで）
+                    const newHeight = Math.min(textarea.scrollHeight, 24 * 5);
+                    textarea.style.height = newHeight + 'px';
+                }
+            }
+        });
+    </script>
+</body>
+</html>
