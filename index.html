@@ -363,6 +363,12 @@
                 <div class="message-content">
                     {{ message.text }}
                     <img v-if="message.image" :src="message.image" alt="添付画像">
+                    <!-- 音声再生ボタン（ボットメッセージかつ音声データがある場合のみ表示） -->
+                    <button v-if="message.sender === 'bot' && message.audio" 
+                            @click="playAudio(message.audio)" 
+                            class="audio-button">
+                        <i class="fas fa-volume-up"></i>
+                    </button>
                 </div>
             </div>
 
@@ -411,6 +417,15 @@
                     >
                         <i class="fas fa-microphone"></i>
                     </button>
+                    <!-- 入力フォームに音声合成トグルを追加 -->
+                    <button 
+                        class="input-button" 
+                        :class="{ active: enableVoice }"
+                        @click="enableVoice = !enableVoice"
+                        title="音声合成"
+                    >
+                        <i class="fas fa-volume-up"></i>
+                    </button>
                     <label class="input-button" title="画像を添付">
                         <i class="fas fa-image"></i>
                         <input
@@ -450,7 +465,9 @@
                 recognition: null,
                 selectedImage: null,
                 selectedImageFile: null,
-                backendUrl: 'https://24c7-35-184-242-39.ngrok-free.app' // 例: https://abcd-123-456-789-10.ngrok.io
+                backendUrl: 'https://24c7-35-184-242-39.ngrok-free.app', // 例: https://abcd-123-456-789-10.ngrok.io
+                enableVoice: false,
+                audioPlayer: null
             },
             mounted() {
                 // 音声認識のセットアップ（ブラウザがサポートしている場合）
@@ -474,6 +491,33 @@
                 this.autoResize();
             },
             methods: {
+                // 音声データを再生する関数
+                playAudio(audioBase64) {
+                    // 既存の再生を停止
+                    if (this.audioPlayer) {
+                        this.audioPlayer.pause();
+                        this.audioPlayer = null;
+                    }
+                    
+                    // Base64 デコードして音声データを取得
+                    const audioData = atob(audioBase64);
+                    
+                    // ArrayBuffer に変換
+                    const arrayBuffer = new ArrayBuffer(audioData.length);
+                    const view = new Uint8Array(arrayBuffer);
+                    for (let i = 0; i < audioData.length; i++) {
+                        view[i] = audioData.charCodeAt(i);
+                    }
+                    
+                    // Blob に変換
+                    const blob = new Blob([arrayBuffer], { type: 'audio/wav' });
+                    const url = URL.createObjectURL(blob);
+                    
+                    // 音声を再生
+                    this.audioPlayer = new Audio(url);
+                    this.audioPlayer.play();
+                },
+                メッセージ送信に関する関数
                 sendMessage() {
                     if ((!this.userInput.trim() && !this.selectedImageFile) || this.isLoading) return;
 
@@ -494,6 +538,7 @@
                     // FormDataの作成
                     const formData = new FormData();
                     formData.append('text', this.userInput);
+                    formData.append('enable_voice', this.enableVoice);
                     if (this.selectedImageFile) {
                         formData.append('image', this.selectedImageFile);
                     }
@@ -508,10 +553,16 @@
                         // ボットの応答を追加
                         this.messages.push({
                             sender: 'bot',
-                            text: data.response
+                            text: data.response,
+                            audio: data.audio // 音声データを保存
                         });
                         this.isLoading = false;
                         this.scrollToBottom();
+
+                        // 音声合成が有効で、音声データがある場合は自動再生
+                        if (this.enableVoice && data.audio) {
+                            this.playAudio(data.audio);
+                        }
                     })
                     .catch(error => {
                         console.error('エラー:', error);
@@ -590,7 +641,8 @@
                     // スクロールの高さに合わせる（最大5行まで）
                     const newHeight = Math.min(textarea.scrollHeight, 24 * 5);
                     textarea.style.height = newHeight + 'px';
-                }
+                },
+                
             }
         });
     </script>
